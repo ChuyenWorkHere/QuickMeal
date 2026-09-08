@@ -1,0 +1,74 @@
+@startuml
+actor "Staff/Admin" as User
+participant "Frontend" as FE
+participant "CategoryController" as CC
+participant "CategoryService" as CS
+participant "CategoryRepository" as CR
+
+== Xem danh sách danh mục ==
+User -> FE: Truy cập trang quản lý danh mục
+FE -> CC: GET /categories
+CC -> CS: getAllCategories()
+CS -> CR: findAll()
+CR --> CS: List<CategoryEntity>
+CS --> CC: List<CategoryDTO>
+CC --> FE: Response 200 OK với danh sách danh mục
+FE --> User: Hiển thị danh sách danh mục
+
+== Thêm danh mục mới ==
+User -> FE: Nhập thông tin danh mục mới và nhấn thêm
+FE -> CC: POST /categories\n(CategoryDTO)
+CC -> CS: createCategory(categoryDTO)
+CS -> CR: existsByName(categoryName)
+alt Tên danh mục đã tồn tại
+    CR --> CS: true
+    CS --> CC: Lỗi "Tên danh mục đã tồn tại"
+    CC --> FE: Response 409 Conflict
+else Tên danh mục chưa tồn tại
+    CS -> CR: save(new CategoryEntity)
+    CR --> CS: CategoryEntity đã được lưu
+    CS --> CC: CategoryDTO
+    CC --> FE: Response 201 Created
+end
+
+== Sửa danh mục ==
+User -> FE: Chọn danh mục để sửa và gửi thông tin cập nhật
+FE -> CC: PUT /categories/{id}\n(CategoryDTO)
+CC -> CS: updateCategory(id, categoryDTO)
+CS -> CR: findById(id)
+alt Danh mục không tồn tại
+    CR --> CS: null
+    CS --> CC: Lỗi "Danh mục không tồn tại"
+else Danh mục tồn tại
+    CS -> CR: existsByNameAndIdNot(categoryName, id)
+    alt Tên danh mục đã tồn tại với danh mục khác
+        CR --> CS: true
+        CS --> CC: Lỗi "Tên danh mục đã tồn tại"
+    else Tên danh mục hợp lệ
+        CS -> CR: save(updated CategoryEntity)
+        CR --> CS: CategoryEntity đã được cập nhật
+        CS --> CC: CategoryDTO
+        CC --> FE: Response 200 OK
+    end
+end
+
+== Xóa danh mục ==
+User -> FE: Chọn danh mục để xóa
+FE -> CC: DELETE /categories/{id}
+CC -> CS: deleteCategory(id)
+CS -> CR: findById(id)
+alt Danh mục không tồn tại
+    CR --> CS: null
+    CS --> CC: Lỗi "Danh mục không tồn tại"
+else Danh mục tồn tại
+    CS -> CR: countProductsByCategoryId(id)
+    alt Danh mục có sản phẩm
+        CR --> CS: count > 0
+        CS --> CC: Lỗi "Không thể xóa danh mục vì danh mục này đang chứa sản phẩm"
+    else Danh mục không có sản phẩm
+        CS -> CR: delete(CategoryEntity)
+        CS --> CC: Thành công
+        CC --> FE: Response 200 OK
+    end
+end
+@enduml

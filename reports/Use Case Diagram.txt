@@ -1,0 +1,123 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam usecase {
+    BackgroundColor #FEFECE
+    BorderColor #A80036
+    ArrowColor #A80036
+    ActorBorderColor #A80036
+}
+
+'=============================
+' ACTORS
+'=============================
+actor "Guest (Vãng lai)" as Guest
+actor "Customer (Khách hàng)" as Customer
+actor "Staff (Nhân viên)" as Staff
+actor "Admin / Chủ quán" as Admin
+actor "Hệ thống Thanh toán" as PaymentSystem
+actor "Email Service" as EmailService
+
+'=============================
+' INHERITANCE
+'=============================
+Guest <|-- Customer
+' Admin không extends Staff nữa, vì kiêm luôn Chủ quán
+
+rectangle "QuickMeal System" {
+
+    '=============================
+    ' PUBLIC + AUTH
+    '=============================
+    package "Authentication & Public" {
+        usecase "Đăng ký tài khoản" as UC_Register
+        usecase "Đăng nhập (JWT)" as UC_Login
+        usecase "Xem menu" as UC_ViewMenu
+        usecase "Tìm kiếm món ăn" as UC_Search
+    }
+
+    '=============================
+    ' CUSTOMER
+    '=============================
+    package "Customer Actions" {
+        usecase "Quản lý giỏ hàng" as UC_Cart
+        usecase "Đặt hàng (Checkout)" as UC_Checkout
+        usecase "Thanh toán COD" as UC_PayCOD
+        usecase "Thanh toán Online" as UC_PayOnline
+        usecase "Xem lịch sử đơn hàng" as UC_ViewOrder
+        usecase "Cập nhật hồ sơ cá nhân" as UC_UpdateProfile
+    }
+
+    '=============================
+    ' STAFF
+    '=============================
+    package "Staff Management" {
+        usecase "Xử lý đơn hàng\n(Duyệt / Giao)" as UC_ProcessOrder
+        usecase "Quản lý món ăn\n(CRUD Product)" as UC_ManageProduct
+        usecase "Quản lý danh mục\n(CRUD Category)" as UC_ManageCategory
+        usecase "Upload hình ảnh" as UC_Upload
+    }
+
+    '=============================
+    ' ADMIN / CHỦ QUÁN
+    '=============================
+    package "Administration" {
+        usecase "Quản lý người dùng\n(User CRUD)" as UC_ManageUser
+        usecase "Xem báo cáo doanh thu" as UC_Report
+        usecase "Cấu hình hệ thống" as UC_Config
+    }
+}
+
+'=============================
+' GLOBAL NOTE (PRE-CONDITION)
+'=============================
+note right of "QuickMeal System"
+Pre-condition cho các Use Case:
+- Actor đã đăng nhập (Customer / Staff / Admin)
+- JWT hợp lệ
+- Role phù hợp với nhóm Use Case
+- Admin kiêm Chủ quán có quyền truy cập tất cả use case Staff
+end note
+
+'=============================
+' ASSOCIATIONS (VÔ HƯỚNG)
+'=============================
+Guest -- UC_Register
+Guest -- UC_ViewMenu
+Guest -- UC_Search
+
+Customer -- UC_Login
+Customer -- UC_Cart
+Customer -- UC_Checkout
+Customer -- UC_ViewOrder
+Customer -- UC_UpdateProfile
+
+Staff -- UC_ProcessOrder
+Staff -- UC_ManageProduct
+Staff -- UC_ManageCategory
+Staff -- UC_Upload
+
+Admin -- UC_ManageUser
+Admin -- UC_Report
+Admin -- UC_Config
+
+' Admin kiêm Chủ quán, có quyền Staff
+Admin -- UC_ProcessOrder
+Admin -- UC_ManageProduct
+Admin -- UC_ManageCategory
+Admin -- UC_Upload
+
+'=============================
+' INCLUDE / EXTEND (VẪN CÓ HƯỚNG)
+'=============================
+UC_Checkout ..> UC_PayCOD : <<extend>> (Chọn COD)
+UC_Checkout ..> UC_PayOnline : <<extend>> (Chọn Online)
+
+UC_PayOnline ..> PaymentSystem : <<include>>\nGọi API Sepay / callback webhook
+UC_Register ..> EmailService : <<include>>\nGửi email xác nhận
+UC_ProcessOrder ..> EmailService : <<include>>\nThông báo trạng thái
+
+UC_ManageProduct .> UC_Upload : <<include>>
+UC_ManageCategory .> UC_Upload : <<include>> (Nếu danh mục có ảnh)
+
+@enduml

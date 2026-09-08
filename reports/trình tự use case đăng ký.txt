@@ -1,0 +1,33 @@
+@startuml Đăng ký tài khoản
+actor Guest
+participant "Frontend" as FE
+participant "RegisterController" as RC
+participant "UserService" as US
+participant "UserRepository" as UR
+
+Guest -> FE: Nhập thông tin đăng ký\n(tên đăng nhập, mật khẩu, họ tên, email, số điện thoại)
+FE -> RC: POST /auth/register\n(RegisterRequestDTO)
+RC -> US: registerUser(registerRequest)
+
+US -> UR: existsByUserName(username)
+alt Tên đăng nhập đã tồn tại
+    UR --> US: true
+    US --> RC: Lỗi "Tên đăng nhập đã được sử dụng"
+    RC --> FE: Response 409 Conflict
+else Tên đăng nhập chưa tồn tại
+    US -> UR: existsByEmail(email)
+    alt Email đã tồn tại
+        UR --> US: true
+        US --> RC: Lỗi "Email đã được sử dụng"
+        RC --> FE: Response 409 Conflict
+    else Email chưa tồn tại
+        US -> US: mã hóa mật khẩu
+        US -> UR: save(new UserEntity)
+        UR --> US: UserEntity đã được lưu
+        US --> RC: RegisterResponseDTO (thông báo thành công)
+        RC --> FE: Response 201 Created
+    end
+end
+
+FE --> Guest: Hiển thị kết quả đăng ký
+@enduml

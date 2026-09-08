@@ -1,0 +1,53 @@
+@startuml Upload hình ảnh
+actor "Staff/Admin" as User
+participant "Frontend" as FE
+participant "ProductController" as PC
+participant "ProductService" as PS
+participant "FileSystem" as FS
+
+== Upload hình ảnh khi tạo mới món ăn ==
+User -> FE: Chọn file hình ảnh và gửi thông tin món ăn
+FE -> PC: POST /products\n(name, description, price, categoryId, MultipartFile image)
+PC -> PS: createProduct(...)
+
+alt File hình ảnh được chọn
+    PS -> FS: Tạo thư mục uploads/<tên_danh_mục> nếu chưa tồn tại
+    PS -> FS: Tạo tên file mới bằng UUID + extension gốc
+    PS -> FS: Lưu file vào thư mục uploads/<tên_danh_mục>/<tên_file>
+    FS --> PS: File được lưu thành công
+    PS -> PS: Tạo đường dẫn: /uploads/<tên_danh_mục>/<tên_file>
+else Không có file hình ảnh
+    PS -> PS: imageUrl = null
+end
+
+PS -> PS: Tạo ProductEntity với imageUrl
+PS -> Database: Lưu ProductEntity
+Database --> PS: ProductEntity đã được lưu
+PS --> PC: ProductDTO với imageUrl
+PC --> FE: Response 201 Created
+
+== Upload hình ảnh khi cập nhật món ăn ==
+User -> FE: Chọn file hình ảnh mới và gửi thông tin cập nhật
+FE -> PC: PUT /products/{id}\n(name, description, price, categoryId, MultipartFile image)
+PC -> PS: updateProduct(id, ...)
+
+PS -> Database: Lấy ProductEntity hiện tại
+Database --> PS: ProductEntity với imageUrl hiện tại
+
+alt Có file hình ảnh mới
+    PS -> FS: Xóa file hình ảnh cũ nếu tồn tại
+    PS -> FS: Tạo thư mục uploads/<tên_danh_mục> nếu chưa tồn tại
+    PS -> FS: Tạo tên file mới bằng UUID + extension gốc
+    PS -> FS: Lưu file mới vào thư mục uploads/<tên_danh_mục>/<tên_file>
+    FS --> PS: File mới được lưu thành công
+    PS -> PS: Cập nhật imageUrl với đường dẫn mới
+else Không có file hình ảnh mới
+    PS -> PS: Giữ nguyên imageUrl hiện tại
+end
+
+PS -> Database: Cập nhật ProductEntity
+Database --> PS: ProductEntity đã được cập nhật
+PS --> PC: ProductDTO đã được cập nhật
+PC --> FE: Response 200 OK
+
+@enduml

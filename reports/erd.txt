@@ -1,0 +1,47 @@
+@startuml ERD QuickMeal
+entity User {
+  + id : int <<PK>>
+  username : varchar
+  password : varchar
+  name : varchar
+  email : varchar
+  phone : varchar
+  role : enum (CUSTOMER, STAFF, ADMIN)
+}
+
+entity Category {
+  + id : int <<PK>>
+  name : varchar
+}
+
+entity Product {
+  + id : int <<PK>>
+  name : varchar
+  description : text
+  price : decimal
+  image_path : varchar
+  category_id : int <<FK>>
+}
+
+entity Order {
+  + id : int <<PK>>
+  user_id : int <<FK>>
+  order_date : datetime
+  total_amount : decimal
+  status : enum (NEW, PREPARING, DELIVERING, COMPLETED, CANCELLED)
+  payment_method : enum (COD, ONLINE)
+}
+
+entity OrderDetail {
+  + id : int <<PK>>
+  order_id : int <<FK>>
+  product_id : int <<FK>>
+  quantity : int
+  price_at_time : decimal
+}
+
+User ||--|{ Order
+Category ||--|{ Product
+Order ||--|{ OrderDetail
+Product ||--|{ OrderDetail
+@enduml

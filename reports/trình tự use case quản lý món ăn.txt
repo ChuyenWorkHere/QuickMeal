@@ -1,0 +1,86 @@
+@startuml
+actor "Staff/Admin" as User
+participant "Frontend" as FE
+participant "ProductController" as PC
+participant "ProductService" as PS
+participant "ProductRepository" as PR
+participant "CategoryRepository" as CR
+
+== Xem danh sách món ăn ==
+User -> FE: Truy cập trang quản lý món ăn
+FE -> PC: GET /products
+PC -> PS: getAllProducts()
+PS -> PR: findAll()
+PR --> PS: List<ProductEntity>
+PS --> PC: List<ProductDTO>
+PC --> FE: Response 200 OK với danh sách món ăn
+FE --> User: Hiển thị danh sách món ăn
+
+== Thêm món ăn mới ==
+User -> FE: Nhập thông tin món ăn và upload hình ảnh
+FE -> PC: POST /products\n(ProductDTO + MultipartFile)
+PC -> PS: createProduct(productDTO, imageFile)
+
+PS -> PR: existsByName(productName)
+alt Tên món ăn đã tồn tại
+    PR --> PS: true
+    PS --> PC: Lỗi "Tên món ăn đã tồn tại"
+    PC --> FE: Response 409 Conflict
+else Tên món ăn chưa tồn tại
+    PS -> CR: existsById(categoryId)
+    alt Danh mục không tồn tại
+        CR --> PS: false
+        PS --> PC: Lỗi "Danh mục không tồn tại"
+    else Danh mục tồn tại
+        PS -> PS: Upload và lưu hình ảnh
+        PS -> PR: save(new ProductEntity)
+        PR --> PS: ProductEntity đã được lưu
+        PS --> PC: ProductDTO
+        PC --> FE: Response 201 Created
+    end
+end
+
+== Sửa món ăn ==
+User -> FE: Chọn món ăn để sửa và gửi thông tin cập nhật
+FE -> PC: PUT /products/{id}\n(ProductDTO + MultipartFile)
+PC -> PS: updateProduct(id, productDTO, imageFile)
+
+PS -> PR: findById(id)
+alt Món ăn không tồn tại
+    PR --> PS: null
+    PS --> PC: Lỗi "Món ăn không tồn tại"
+else Món ăn tồn tại
+    PS -> PR: existsByNameAndIdNot(productName, id)
+    alt Tên món ăn đã tồn tại với món khác
+        PR --> PS: true
+        PS --> PC: Lỗi "Tên món ăn đã tồn tại"
+    else Tên món ăn hợp lệ
+        PS -> PS: Upload hình ảnh mới (nếu có)
+        PS -> PR: save(updated ProductEntity)
+        PR --> PS: ProductEntity đã được cập nhật
+        PS --> PC: ProductDTO
+        PC --> FE: Response 200 OK
+    end
+end
+
+== Xóa món ăn ==
+User -> FE: Chọn món ăn để xóa
+FE -> PC: DELETE /products/{id}
+PC -> PS: deleteProduct(id)
+
+PS -> PR: findById(id)
+alt Món ăn không tồn tại
+    PR --> PS: null
+    PS --> PC: Lỗi "Món ăn không tồn tại"
+else Món ăn tồn tại
+    PS -> PR: countOrdersContainingProduct(id)
+    alt Món ăn có trong đơn hàng
+        PR --> PS: count > 0
+        PS --> PC: Lỗi "Không thể xóa món ăn vì món ăn này đang có trong các đơn hàng"
+    else Món ăn không có trong đơn hàng
+        PS -> PR: delete(ProductEntity)
+        PS --> PC: Thành công
+        PC --> FE: Response 200 OK
+    end
+end
+@enduml

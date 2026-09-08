@@ -1,0 +1,54 @@
+spring:
+  application:
+    name: QuickMeal Backend
+  profiles:
+    active: [local]
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: jdbc:mysql://localhost:3306/quickmeal
+    username: root
+    password: 12345 
+    hikari:
+      auto-commit: true
+      connection-timeout: 30000
+      maximum-pool-size: 10
+      minimum-idle: 5
+      max-life-time: 1800000
+      idle-timeout: 600000
+  jpa:
+    hibernate:
+      ddl-auto: update   # update: tự tạo bảng nếu chưa có, giữ dữ liệu cũ
+    show-sql: true       # hiển thị SQL ra console
+    properties:
+      hibernate:
+        format_sql: true # format SQL cho dễ đọc
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
+server:
+  port: 8080
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,application/json
+    min-response-size: 1024
+
+logging:
+  level:
+    root: INFO
+    org.springframework.web: DEBUG        # Log chi tiết cho Spring Web
+    org.hibernate.SQL: DEBUG              # Log các câu lệnh SQL
+    org.hibernate.type: TRACE             # Log tham số SQL
+    org.springframework.transaction: DEBUG
+    org.springframework.security: DEBUG   # Log Security
+ 

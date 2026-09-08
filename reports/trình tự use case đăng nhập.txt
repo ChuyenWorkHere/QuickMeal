@@ -1,0 +1,25 @@
+@startuml Đăng nhập
+actor Customer
+participant "Frontend" as FE
+participant "AuthController" as AC
+participant "UserService" as US
+participant "UserRepository" as UR
+participant "JwtService" as JS
+
+Customer -> FE: Nhập tên đăng nhập và mật khẩu
+FE -> AC: POST /auth/login\n(LoginRequestDTO)
+AC -> US: validateLogin(username, password)
+US -> UR: findByUserName(username)
+UR --> US: UserEntity
+alt Thông tin đăng nhập hợp lệ
+    US -> US: kiểm tra mật khẩu
+    US -> JS: generateToken(user)
+    JS --> US: JWT Token
+    US --> AC: LoginResponseDTO (token, userInfo)
+    AC --> FE: Response 200 OK với token
+else Thông tin đăng nhập không hợp lệ
+    US --> AC: Lỗi đăng nhập
+    AC --> FE: Response 401 Unauthorized\n{"error": "Tên đăng nhập hoặc mật khẩu không đúng"}
+end
+FE --> Customer: Hiển thị kết quả đăng nhập
+@enduml
