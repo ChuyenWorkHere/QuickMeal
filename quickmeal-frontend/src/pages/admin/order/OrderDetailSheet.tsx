@@ -11,6 +11,13 @@ import { ShoppingBag, User, MapPin, Phone, MessageSquare, CreditCard, Calendar, 
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 
+const PAYMENT_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+    UNPAID: { label: "Chưa thanh toán", color: "bg-amber-50 text-amber-700 border-amber-200" },
+    PAID: { label: "Đã thanh toán", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    FAILED: { label: "Thanh toán lỗi", color: "bg-rose-50 text-rose-700 border-rose-200" },
+    REFUNDED: { label: "Đã hoàn tiền", color: "bg-slate-100 text-slate-600 border-slate-200" },
+};
+
 interface OrderDetailSheetProps {
     order: OrderResponseDTO | null;
     isOpen: boolean;
@@ -130,14 +137,26 @@ const OrderDetailSheet: React.FC<OrderDetailSheetProps> = ({ order, isOpen, onCl
                                     <p className="text-sm italic font-medium">"{order.note}"</p>
                                 </div>
                             )}
-                            <div className="p-4 rounded-2xl border flex items-center gap-4 bg-slate-50/50 dark:bg-slate-900/50">
-                                <div className="h-10 w-10 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center">
-                                    <CreditCard className="h-5 w-5 text-indigo-500" />
+                            <div className="p-4 rounded-2xl border flex items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-900/50">
+                                <div className="flex items-center gap-4">
+                                    <div className="h-10 w-10 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center">
+                                        <CreditCard className="h-5 w-5 text-indigo-500" />
+                                    </div>
+                                    <div className="text-xs">
+                                        <p className="font-black uppercase tracking-wider">Thanh toán</p>
+                                        <p className="text-muted-foreground font-medium">
+                                            {order.paymentMethod === "VNPAY" ? "VNPay" : "Tiền mặt khi nhận hàng (COD)"}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div className="text-xs">
-                                    <p className="font-black uppercase tracking-wider">Thanh toán</p>
-                                    <p className="text-muted-foreground font-medium">Tiền mặt khi nhận hàng (COD)</p>
-                                </div>
+                                <Badge
+                                    variant="outline"
+                                    className={
+                                        (PAYMENT_STATUS_CONFIG[order.paymentStatus] || PAYMENT_STATUS_CONFIG.UNPAID).color
+                                    }
+                                >
+                                    {(PAYMENT_STATUS_CONFIG[order.paymentStatus] || PAYMENT_STATUS_CONFIG.UNPAID).label}
+                                </Badge>
                             </div>
                         </div>
                     </div>
