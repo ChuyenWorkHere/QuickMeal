@@ -9,7 +9,7 @@ spring:
   datasource:
     url: jdbc:mysql://localhost:3306/quickmeal
     username: root
-    password: 12345 
+    password: 12345678
     hikari:
       auto-commit: true
       connection-timeout: 30000
@@ -20,7 +20,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update   # update: tự tạo bảng nếu chưa có, giữ dữ liệu cũ
-    show-sql: true       # hiển thị SQL ra console
+    show-sql: false       # hiển thị SQL ra console
     properties:
       hibernate:
         format_sql: true # format SQL cho dễ đọc
@@ -42,6 +42,22 @@ server:
     enabled: true
     mime-types: text/html,text/xml,text/plain,application/json
     min-response-size: 1024
+
+vnpay:
+  # Giá trị thật (tmn-code/hash-secret) đặt trong application-local.yaml (gitignore, không commit)
+  # vì spring.profiles.active=local đã bật sẵn ở trên nên Spring tự merge file đó vào
+  tmn-code: YOUR_TMN_CODE
+  hash-secret: YOUR_HASH_SECRET
+  version: "2.1.0"
+  pay-url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+  api-url: https://sandbox.vnpayment.vn/merchant_webapi/api/transaction
+  # URL backend, VNPay redirect trình duyệt khách / gọi server-to-server vào đây
+  return-url: http://localhost:8080/api/payments/vnpay/return
+  # Giá trị này chỉ để ghi chú - IPN URL thật phải khai báo bên VNPay Merchant Admin,
+  # không được gửi kèm trong request thanh toán như return-url
+  ipn-url: http://localhost:8080/api/payments/vnpay/ipn
+  # URL frontend để backend redirect người dùng sau khi xử lý xong return
+  frontend-return-url: http://localhost:5173/payment-result
 
 logging:
   level:

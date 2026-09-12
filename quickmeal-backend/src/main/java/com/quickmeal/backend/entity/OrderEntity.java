@@ -5,6 +5,8 @@
 package com.quickmeal.backend.entity;
 
 import com.quickmeal.backend.constant.OrderStatus;
+import com.quickmeal.backend.constant.PaymentMethod;
+import com.quickmeal.backend.constant.PaymentStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -40,6 +42,26 @@ public class OrderEntity {
 
     @Enumerated(EnumType.STRING)
     private OrderStatus status;
+
+    // Phương thức thanh toán (COD / VNPAY)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private PaymentMethod paymentMethod = PaymentMethod.COD;
+
+    // Trạng thái tiền: độc lập với OrderStatus (trạng thái vận hành bếp/giao hàng)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private PaymentStatus paymentStatus = PaymentStatus.UNPAID;
+
+    // Mã giao dịch tự sinh, gửi cho VNPay để họ echo lại trong callback -> dùng tra cứu order
+    @Column(name = "vnp_txn_ref", unique = true)
+    private String vnpTxnRef;
+
+    // Mã giao dịch do chính VNPay sinh ra, chỉ có sau khi thanh toán xong -> dùng cho refund/querydr
+    @Column(name = "vnp_transaction_no")
+    private String vnpTransactionNo;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
     private List<OrderItemEntity> items;

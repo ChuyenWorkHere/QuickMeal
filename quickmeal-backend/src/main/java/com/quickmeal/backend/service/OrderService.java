@@ -5,9 +5,12 @@
 package com.quickmeal.backend.service;
 
 import com.quickmeal.backend.constant.OrderStatus;
+import com.quickmeal.backend.constant.PaymentMethod;
+import com.quickmeal.backend.constant.PaymentStatus;
 import com.quickmeal.backend.dto.order.OrderRequestDTO;
 import com.quickmeal.backend.dto.order.OrderResponseDTO;
 import com.quickmeal.backend.entity.*;
+import com.quickmeal.backend.exception.BusinessException;
 import com.quickmeal.backend.repo.*;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -30,6 +33,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
+    private final VNPayService vnPayService;
 
     @Transactional(readOnly = true)
     public Page<OrderResponseDTO> getAllOrders(String keyword, String statusStr, Pageable pageable) {
@@ -60,6 +64,8 @@ public class OrderService {
                 .note(entity.getNote())
                 .totalPrice(entity.getTotalPrice())
                 .status(entity.getStatus())
+                .paymentMethod(entity.getPaymentMethod())
+                .paymentStatus(entity.getPaymentStatus())
                 .createdAt(entity.getCreatedAt())
                 .items(entity.getItems().stream()
                         .map(item -> OrderResponseDTO.OrderItemDTO.builder()
@@ -74,7 +80,7 @@ public class OrderService {
     @Transactional
     public OrderResponseDTO createOrder(OrderRequestDTO dto) {
         UserEntity user = userRepository.findByUserName(dto.getUserName())
-                .orElseThrow(() -> new RuntimeException("User không tồn tại: " + dto.getUserName()));
+                .orElseThrow(() -> new BusinessException("User không tồn tại: " + dto.getUserName()));
 
         OrderEntity order = OrderEntity.builder()
                 .user(user)
@@ -82,17 +88,19 @@ public class OrderService {
                 .phone(dto.getPhone())
                 .note(dto.getNote())
                 .status(OrderStatus.PENDING_ACCEPTANCE)
+                .paymentMethod(parsePaymentMethod(dto.getPaymentMethod()))
+                .paymentStatus(PaymentStatus.UNPAID)
                 .totalPrice(0.0)
                 .build();
 
         List<OrderItemEntity> items = dto.getItems().stream().map(itemDto -> {
             ProductEntity product = productRepository.findById(itemDto.getProductId())
-                    .orElseThrow(() -> new RuntimeException("Sản phẩm ID " + itemDto.getProductId() + " không tồn tại"));
+                    .orElseThrow(() -> new BusinessException("Sản phẩm ID " + itemDto.getProductId() + " không tồn tại"));
             // Kiểm tra tồn kho (nếu có)
             Integer stock = product.getStock();
             if (stock != null) {
                 if (stock < itemDto.getQuantity()) {
-                    throw new RuntimeException("Sản phẩm '" + product.getName() + "' chỉ còn " + stock + " cái. Vui lòng điều chỉnh số lượng.");
+                    throw new BusinessException("Sản phẩm '" + product.getName() + "' chỉ còn " + stock + " cái. Vui lòng điều chỉnh số lượng.");
                 }
                 // trừ tồn
                 product.setStock(stock - itemDto.getQuantity());
@@ -118,7 +126,28 @@ public class OrderService {
     @Transactional
     public OrderResponseDTO updateStatus(Long orderId, OrderStatus newStatus) {
         OrderEntity order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
+                .orElseThrow(() -> new BusinessException("Không tìm thấy đơn hàng"));
+
+        final boolean isCancelLike = newStatus == OrderStatus.CANCELLED || newStatus == OrderStatus.REJECTED;
+
+        // Đơn VNPay chưa thanh toán (paymentStatus != PAID) thì chưa được đẩy đi tiếp -
+        // tránh trường hợp bếp chuẩn bị món cho đơn khách bỏ ngang chưa trả tiền
+        if (!isCancelLike && order.getPaymentMethod() == PaymentMethod.VNPAY
+                && order.getPaymentStatus() != PaymentStatus.PAID) {
+            throw new BusinessException("Đơn hàng chưa thanh toán, chưa thể xử lý");
+        }
+
+        // Đơn VNPay đã PAID thì không được hủy tay bình thường - bắt buộc đi qua luồng
+        // hủy + hoàn tiền (cancelWithRefund) để tiền thật được hoàn lại đúng cách
+        if (isCancelLike && order.getPaymentMethod() == PaymentMethod.VNPAY
+                && order.getPaymentStatus() == PaymentStatus.PAID) {
+            throw new BusinessException("Đơn đã thanh toán qua VNPay, vui lòng dùng chức năng hủy & hoàn tiền");
+        }
+
+        if (isCancelLike && order.getStatus() != OrderStatus.CANCELLED && order.getStatus() != OrderStatus.REJECTED) {
+            restoreStock(order);
+        }
+
         order.setStatus(newStatus);
         order.setUpdatedAt(LocalDateTime.now());
 
@@ -126,10 +155,43 @@ public class OrderService {
         return convertToDTO(savedOrder);
     }
 
+    /**
+     * Hủy 1 đơn VNPay đã PAID kèm hoàn tiền thật qua VNPay. Controller chỉ nên cho phép
+     * ADMIN gọi (tác động tới tiền thật, không nên để STAFF tự ý hoàn tiền).
+     */
+    @Transactional
+    public OrderResponseDTO cancelWithRefund(Long orderId, String performedBy) {
+        OrderEntity order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy đơn hàng"));
+        vnPayService.refundOrder(order, performedBy);
+        return convertToDTO(order);
+    }
+
+    private PaymentMethod parsePaymentMethod(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return PaymentMethod.COD;
+        }
+        try {
+            return PaymentMethod.valueOf(raw.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException("Phương thức thanh toán không hợp lệ: " + raw);
+        }
+    }
+
+    private void restoreStock(OrderEntity order) {
+        for (OrderItemEntity item : order.getItems()) {
+            final ProductEntity product = item.getProduct();
+            if (product.getStock() != null) {
+                product.setStock(product.getStock() + item.getQuantity());
+                productRepository.save(product);
+            }
+        }
+    }
+
     @Transactional(readOnly = true)
     public Page<OrderResponseDTO> getOrdersByCustomer(String userName, String statusStr, Pageable pageable) {
         if (!userRepository.existsByUserName(userName)) {
-            throw new RuntimeException("Người dùng không tồn tại: " + userName);
+            throw new BusinessException("Người dùng không tồn tại: " + userName);
         }
 
         // Logic chuyển đổi Status chuỗi sang Enum

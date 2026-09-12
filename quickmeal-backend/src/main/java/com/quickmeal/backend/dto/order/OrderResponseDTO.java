@@ -5,6 +5,8 @@
 package com.quickmeal.backend.dto.order;
 
 import com.quickmeal.backend.constant.OrderStatus;
+import com.quickmeal.backend.constant.PaymentMethod;
+import com.quickmeal.backend.constant.PaymentStatus;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -28,6 +30,8 @@ public class OrderResponseDTO {
     private String note;
     private Double totalPrice;
     private OrderStatus status;
+    private PaymentMethod paymentMethod;
+    private PaymentStatus paymentStatus;
     private LocalDateTime createdAt;
     private List<OrderItemDTO> items;
 

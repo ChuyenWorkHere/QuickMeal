@@ -4,8 +4,10 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
+@EnableScheduling
 public final class QuickMealApplication {
 
     public static void main(String[] args) {

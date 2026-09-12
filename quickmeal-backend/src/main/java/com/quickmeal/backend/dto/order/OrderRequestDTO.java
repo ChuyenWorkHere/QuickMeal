@@ -18,6 +18,8 @@ public class OrderRequestDTO {
     private String address;
     private String phone;
     private String note;
+    // "COD" hoặc "VNPAY" - không truyền thì mặc định COD
+    private String paymentMethod;
     private List<OrderItemRequest> items;
 
     @Data

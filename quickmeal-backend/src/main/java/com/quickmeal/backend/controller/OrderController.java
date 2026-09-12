@@ -8,11 +8,13 @@ import com.quickmeal.backend.constant.ConstAccount;
 import com.quickmeal.backend.constant.OrderStatus;
 import com.quickmeal.backend.dto.order.OrderRequestDTO;
 import com.quickmeal.backend.dto.order.OrderResponseDTO;
+import com.quickmeal.backend.exception.BusinessException;
 import com.quickmeal.backend.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -44,11 +46,19 @@ public class OrderController {
         return orderService.updateStatus(id, status);
     }
 
+    // Hủy đơn VNPay đã thanh toán kèm hoàn tiền thật - chỉ ADMIN được quyền,
+    // vì tác động trực tiếp đến tiền thật (khác với hủy đơn thường qua updateStatus)
+    @PatchMapping("/{id}/cancel-refund")
+    @PreAuthorize(ConstAccount.Role.HAS_AUTHORITY_ADMIN)
+    public OrderResponseDTO cancelWithRefund(@PathVariable Long id, Authentication authentication) {
+        return orderService.cancelWithRefund(id, authentication.getName());
+    }
+
     @PostMapping("/checkout")
     @PreAuthorize(ConstAccount.Role.HAS_AUTHORITY_CUSTOMER)
     public OrderResponseDTO checkout(@RequestBody OrderRequestDTO dto) {
         if (dto.getUserName() == null || dto.getUserName().isBlank()) {
-            throw new RuntimeException("Thiếu userName trong payload checkout");
+            throw new BusinessException("Thiếu userName trong payload checkout");
         }
         return orderService.createOrder(dto);
     }

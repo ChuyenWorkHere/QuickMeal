@@ -24,6 +24,11 @@ public final class ConstAPI {
     public static final String MAPPING_AUTH_RERESH = "/refresh";
     public static final String MAPPING_AUTH_LOGOUT = "/logout";
 
+    public static final String API_PAYMENT_VNPAY = PREFIX_API + "/payments/vnpay";
+    public static final String MAPPING_VNPAY_CREATE = "/create-payment";
+    public static final String MAPPING_VNPAY_RETURN = "/return";
+    public static final String MAPPING_VNPAY_IPN = "/ipn";
+
     /**
      * API không cần token
      */
@@ -32,7 +37,11 @@ public final class ConstAPI {
         PREFIX_API + "/categories/**",
         API_PUBLIC + "/**",
         "/uploads/**",
-        "/test/all"
+        "/test/all",
+        // VNPay tự gọi vào 2 endpoint này (server-to-server / redirect trình duyệt khách),
+        // không thể đính kèm JWT của hệ thống mình được
+        API_PAYMENT_VNPAY + MAPPING_VNPAY_RETURN,
+        API_PAYMENT_VNPAY + MAPPING_VNPAY_IPN
     };
 
     /**

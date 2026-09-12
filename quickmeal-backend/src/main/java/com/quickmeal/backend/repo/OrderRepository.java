@@ -5,7 +5,12 @@
 package com.quickmeal.backend.repo;
 
 import com.quickmeal.backend.constant.OrderStatus;
+import com.quickmeal.backend.constant.PaymentMethod;
+import com.quickmeal.backend.constant.PaymentStatus;
 import com.quickmeal.backend.entity.OrderEntity;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -41,5 +46,15 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
             @Param("userName") String userName,
             @Param("status") OrderStatus status,
             Pageable pageable
+    );
+
+    // Tra cứu order theo mã giao dịch VNPay tự sinh - dùng khi xử lý callback (return/IPN)
+    Optional<OrderEntity> findByVnpTxnRef(String vnpTxnRef);
+
+    // Dùng cho job reconciliation: các đơn VNPay còn UNPAID lâu hơn ngưỡng cho phép
+    List<OrderEntity> findByPaymentMethodAndPaymentStatusAndCreatedAtBefore(
+            PaymentMethod paymentMethod,
+            PaymentStatus paymentStatus,
+            LocalDateTime before
     );
 }

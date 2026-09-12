@@ -59,6 +59,13 @@ public class GlobalExceptionHandler {
                 .body("API không hợp lệ");
     }
 
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<?> handleBusinessException(BusinessException ex) {
+        Map<String, String> body = new HashMap<>();
+        body.put("message", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleGlobalException(Exception ex, HttpServletRequest exchange) {
         Logger.error(">>>> handleGlobalException: Path: " + exchange.getRequestURI(), ex);
