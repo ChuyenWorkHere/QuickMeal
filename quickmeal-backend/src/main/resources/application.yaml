@@ -9,7 +9,7 @@ spring:
   datasource:
     url: jdbc:mysql://localhost:3306/quickmeal
     username: root
-    password: 12345678
+    password: 12345
     hikari:
       auto-commit: true
       connection-timeout: 30000
