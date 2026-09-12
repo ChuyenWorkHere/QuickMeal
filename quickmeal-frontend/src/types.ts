@@ -40,6 +40,9 @@ export type OrderStatus =
   | 'DELIVERED'
   | 'CANCELLED';
 
+export type PaymentMethod = 'COD' | 'VNPAY';
+export type PaymentStatus = 'UNPAID' | 'PAID' | 'FAILED' | 'REFUNDED';
+
 export interface OrderItemDTO {
   productName: string;
   quantity: number;
@@ -55,6 +58,8 @@ export interface OrderResponseDTO {
   note: string;
   totalPrice: number;
   status: OrderStatus;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
   createdAt: string; // ISO format
   items: OrderItemDTO[];
 }

@@ -28,11 +28,20 @@ import {
     RefreshCcw,
     Package,
     Inbox,
+    Undo2,
 } from "lucide-react";
 import { orderService } from "@/services/orderService";
 import type { OrderResponseDTO, OrderStatus } from "@/types";
 import OrderDetailSheet from "./OrderDetailSheet";
 import { toast } from "sonner";
+import { useAuthContext } from "@/context/AuthContext";
+
+const PAYMENT_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+    UNPAID: { label: "Chưa thanh toán", color: "bg-amber-50 text-amber-700 border-amber-200" },
+    PAID: { label: "Đã thanh toán", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    FAILED: { label: "Thanh toán lỗi", color: "bg-rose-50 text-rose-700 border-rose-200" },
+    REFUNDED: { label: "Đã hoàn tiền", color: "bg-slate-100 text-slate-600 border-slate-200" },
+};
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
     ALL: { label: "Tất cả", color: "bg-slate-100 text-slate-700 border-slate-200" },
@@ -46,6 +55,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 };
 
 export default function Orders() {
+    const { role } = useAuthContext();
     const [orders, setOrders] = useState<OrderResponseDTO[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
@@ -89,12 +99,28 @@ export default function Orders() {
         setUpdatingIds(prev => ({ ...prev, [id]: true }));
         try {
             await orderService.updateStatus(id, newStatus);
-            setOrders(prev => prev.map(o => 
+            setOrders(prev => prev.map(o =>
                 o.id === id ? { ...o, status: newStatus as OrderStatus } : o
             ));
             toast.success(`Đã cập nhật đơn #${id}`);
-        } catch (error) {
-            toast.error("Lỗi cập nhật");
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || "Lỗi cập nhật");
+        } finally {
+            setUpdatingIds(prev => ({ ...prev, [id]: false }));
+        }
+    };
+
+    const handleCancelRefund = async (id: number) => {
+        if (!window.confirm(`Hủy đơn #${id} và hoàn tiền qua VNPay cho khách? Hành động này không thể hoàn tác.`)) {
+            return;
+        }
+        setUpdatingIds(prev => ({ ...prev, [id]: true }));
+        try {
+            const updated = await orderService.cancelWithRefund(id);
+            setOrders(prev => prev.map(o => (o.id === id ? updated : o)));
+            toast.success(`Đã hủy & hoàn tiền đơn #${id}`);
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || "Không thể hủy & hoàn tiền đơn này");
         } finally {
             setUpdatingIds(prev => ({ ...prev, [id]: false }));
         }
@@ -164,8 +190,9 @@ export default function Orders() {
                                     <TableHead className="w-[100px] font-semibold">Mã đơn</TableHead>
                                     <TableHead className="font-semibold">Khách hàng</TableHead>
                                     <TableHead className="font-semibold text-right">Tổng tiền</TableHead>
+                                    <TableHead className="font-semibold text-center">Thanh toán</TableHead>
                                     <TableHead className="font-semibold text-center">Trạng thái</TableHead>
-                                    <TableHead className="w-[80px] text-right font-semibold">Chi tiết</TableHead>
+                                    <TableHead className="w-[110px] text-right font-semibold">Chi tiết</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -185,18 +212,36 @@ export default function Orders() {
                                                 {order.totalPrice.toLocaleString()}đ
                                             </TableCell>
                                             <TableCell>
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <PaymentBadge order={order} />
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
                                                 <div className="flex justify-center">
-                                                    <StatusDropdown 
-                                                        currentStatus={order.status} 
-                                                        onUpdate={(s) => handleStatusUpdate(order.id, s)} 
+                                                    <StatusDropdown
+                                                        currentStatus={order.status}
+                                                        onUpdate={(s) => handleStatusUpdate(order.id, s)}
                                                         isLoading={updatingIds[order.id]}
                                                     />
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                <Button variant="ghost" size="icon" onClick={() => { setSelectedOrder(order); setIsSheetOpen(true); }}>
-                                                    <Eye className="h-4 w-4" />
-                                                </Button>
+                                                <div className="flex items-center justify-end gap-1">
+                                                    {role === "ADMIN" && order.paymentMethod === "VNPAY" && order.paymentStatus === "PAID" && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            title="Hủy & hoàn tiền"
+                                                            disabled={updatingIds[order.id]}
+                                                            onClick={() => handleCancelRefund(order.id)}
+                                                        >
+                                                            <Undo2 className="h-4 w-4 text-rose-600" />
+                                                        </Button>
+                                                    )}
+                                                    <Button variant="ghost" size="icon" onClick={() => { setSelectedOrder(order); setIsSheetOpen(true); }}>
+                                                        <Eye className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))
@@ -217,6 +262,7 @@ export default function Orders() {
                                             <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full uppercase">Đơn #{order.id}</span>
                                             <h3 className="font-bold text-slate-900 text-base">{order.customerName}</h3>
                                             <p className="text-xs text-slate-500 font-medium">{order.phone}</p>
+                                            <PaymentBadge order={order} />
                                         </div>
                                         <p className="font-bold text-indigo-600 text-lg">{order.totalPrice.toLocaleString()}đ</p>
                                     </div>
@@ -224,19 +270,29 @@ export default function Orders() {
                                     {/* Action Area: Chia làm 2 cột hoặc hàng tùy độ rộng */}
                                     <div className="flex flex-col sm:flex-row gap-2">
                                         <div className="flex-1">
-                                            <StatusDropdown 
-                                                currentStatus={order.status} 
+                                            <StatusDropdown
+                                                currentStatus={order.status}
                                                 onUpdate={(s) => handleStatusUpdate(order.id, s)}
                                                 isLoading={updatingIds[order.id]}
                                             />
                                         </div>
-                                        <Button 
-                                            variant="secondary" 
+                                        <Button
+                                            variant="secondary"
                                             className="w-full sm:w-auto bg-slate-100 text-slate-900 font-semibold h-11 rounded-xl"
                                             onClick={() => { setSelectedOrder(order); setIsSheetOpen(true); }}
                                         >
                                             <Eye className="h-4 w-4 mr-2" /> Chi tiết
                                         </Button>
+                                        {role === "ADMIN" && order.paymentMethod === "VNPAY" && order.paymentStatus === "PAID" && (
+                                            <Button
+                                                variant="secondary"
+                                                className="w-full sm:w-auto bg-rose-50 text-rose-700 font-semibold h-11 rounded-xl"
+                                                disabled={updatingIds[order.id]}
+                                                onClick={() => handleCancelRefund(order.id)}
+                                            >
+                                                <Undo2 className="h-4 w-4 mr-2" /> Hủy & hoàn tiền
+                                            </Button>
+                                        )}
                                     </div>
                                 </div>
                             ))
@@ -310,5 +366,19 @@ function EmptyStateView({ isTable }: { isTable: boolean }) {
             <p className="text-sm font-bold uppercase tracking-tighter">Trống</p>
         </div>
     );
-    return isTable ? <TableRow><TableCell colSpan={5}>{content}</TableCell></TableRow> : content;
+    return isTable ? <TableRow><TableCell colSpan={6}>{content}</TableCell></TableRow> : content;
+}
+
+function PaymentBadge({ order }: { order: OrderResponseDTO }) {
+    const cfg = PAYMENT_STATUS_CONFIG[order.paymentStatus] || PAYMENT_STATUS_CONFIG.UNPAID;
+    return (
+        <div className="flex flex-col items-start gap-0.5">
+            <span className="text-[10px] font-bold uppercase text-slate-400">
+                {order.paymentMethod === "VNPAY" ? "VNPay" : "COD"}
+            </span>
+            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${cfg.color}`}>
+                {cfg.label}
+            </span>
+        </div>
+    );
 }

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCart } from '@/context/CartContext';
 import { useAuthContext } from '@/context/AuthContext';
 import { orderService } from '@/services/orderService';
+import { paymentService } from '@/services/paymentService';
 import { getProductImageUrl } from '@/utils/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +19,7 @@ const CheckoutPage: React.FC = () => {
     const { userName, fullName, phone, token } = useAuthContext(); // Lấy userName từ context ở đây
     const navigate = useNavigate();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [paymentMethod, setPaymentMethod] = useState<'COD' | 'VNPAY'>('COD');
 
     const [shippingInfo, setShippingInfo] = useState({
         fullName: fullName || '',
@@ -57,13 +59,22 @@ const CheckoutPage: React.FC = () => {
                 address: shippingInfo.address,
                 phone: shippingInfo.phone,
                 note: shippingInfo.note,
+                paymentMethod,
                 items: cartItems.map(item => ({
                     productId: item.id,
                     quantity: item.quantity
                 }))
             };
 
-            await orderService.createOrder(orderData);
+            const order = await orderService.createOrder(orderData);
+
+            if (paymentMethod === 'VNPAY') {
+                // Chuyển hướng sang trang thanh toán VNPay, giữ nguyên giỏ hàng
+                // cho tới khi có kết quả thanh toán (xử lý ở PaymentResultPage)
+                const paymentUrl = await paymentService.createVnpayPayment(order.id);
+                window.location.href = paymentUrl;
+                return;
+            }
 
             const successMessage = "Đặt hàng thành công! Đơn hàng đang chờ nhà hàng xác nhận.";
             toast.success(successMessage);
@@ -160,14 +171,34 @@ const CheckoutPage: React.FC = () => {
                                 <CreditCard className="h-5 w-5 text-primary" /> Phương thức thanh toán
                             </CardTitle>
                         </CardHeader>
-                        <CardContent>
-                            <div className="flex items-center space-x-2 border p-4 rounded-md bg-primary/5 border-primary">
-                                <div className="h-4 w-4 rounded-full border-4 border-primary bg-white" />
-                                <Label className="font-medium cursor-pointer">Thanh toán khi nhận hàng (COD)</Label>
-                            </div>
-                            <p className="text-sm text-muted-foreground mt-2 italic">
-                                * Hiện tại chúng tôi chỉ hỗ trợ thanh toán COD. Cảm ơn quý khách!
-                            </p>
+                        <CardContent className="space-y-3">
+                            <button
+                                type="button"
+                                onClick={() => setPaymentMethod('COD')}
+                                className={`w-full flex items-center gap-3 border p-4 rounded-md text-left transition-colors ${paymentMethod === 'COD' ? 'bg-primary/5 border-primary' : 'border-muted'
+                                    }`}
+                            >
+                                <div className={`h-4 w-4 rounded-full border-4 bg-white flex-shrink-0 ${paymentMethod === 'COD' ? 'border-primary' : 'border-muted-foreground/40'
+                                    }`} />
+                                <span className="font-medium">Thanh toán khi nhận hàng (COD)</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setPaymentMethod('VNPAY')}
+                                className={`w-full flex items-center gap-3 border p-4 rounded-md text-left transition-colors ${paymentMethod === 'VNPAY' ? 'bg-primary/5 border-primary' : 'border-muted'
+                                    }`}
+                            >
+                                <div className={`h-4 w-4 rounded-full border-4 bg-white flex-shrink-0 ${paymentMethod === 'VNPAY' ? 'border-primary' : 'border-muted-foreground/40'
+                                    }`} />
+                                <span className="font-medium">Thanh toán qua VNPay</span>
+                            </button>
+
+                            {paymentMethod === 'VNPAY' && (
+                                <p className="text-sm text-muted-foreground italic">
+                                    * Bạn sẽ được chuyển sang cổng thanh toán VNPay để hoàn tất giao dịch.
+                                </p>
+                            )}
                         </CardContent>
                     </Card>
                 </div>
@@ -230,7 +261,11 @@ const CheckoutPage: React.FC = () => {
                                 className="w-full h-12 text-lg font-bold shadow-lg shadow-primary/20"
                                 disabled={isSubmitting || cartItems.length === 0}
                             >
-                                {isSubmitting ? "Đang xử lý..." : "Xác nhận đặt hàng"}
+                                {isSubmitting
+                                    ? "Đang xử lý..."
+                                    : paymentMethod === 'VNPAY'
+                                        ? "Thanh toán qua VNPay"
+                                        : "Xác nhận đặt hàng"}
                             </Button>
                         </CardFooter>
                     </Card>

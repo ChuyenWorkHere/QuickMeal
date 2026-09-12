@@ -21,6 +21,7 @@ export interface OrderRequestDTO {
     address: string;
     phone: string;
     note: string;
+    paymentMethod: "COD" | "VNPAY";
     items: OrderItemRequest[];
 }
 
@@ -49,6 +50,11 @@ export const orderService = {
 
     updateStatus: async (id: number, status: string): Promise<OrderResponseDTO> => {
         const response = await api.patch(`/orders/${id}/status?status=${status}`);
+        return response.data;
+    },
+    // Hủy đơn VNPay đã PAID kèm hoàn tiền thật qua VNPay - chỉ ADMIN được phép gọi
+    cancelWithRefund: async (id: number): Promise<OrderResponseDTO> => {
+        const response = await api.patch(`/orders/${id}/cancel-refund`);
         return response.data;
     },
     getOrderById: async (id: number): Promise<OrderResponseDTO> => {

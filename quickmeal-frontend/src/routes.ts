@@ -15,6 +15,7 @@ import Users from "./pages/admin/user/Users";
 import type { RoleType } from "@/types";
 import MenuPage from "@/pages/MenuPage";
 import CheckoutPage from "@/pages/CheckoutPage";
+import PaymentResultPage from "@/pages/PaymentResultPage";
 import ComingSoon from "@/pages/admin/ComingSoon";
 import ProfilePage from "@/pages/user/ProfilePage";
 import OrdersPage from "@/pages/admin/order/Orders";
@@ -38,6 +39,7 @@ export const routes: AppRoute[] = [
 
     // Customer routes
     { path: "/checkout", element: CheckoutPage, layout: PublicLayout, role: ["CUSTOMER"] },
+    { path: "/payment-result", element: PaymentResultPage, layout: PublicLayout, role: ["CUSTOMER"] },
     { path: "/profile", element: ProfilePage, layout: PublicLayout, role: ["CUSTOMER"] },
     { path: "/order-history", element: OrderHistory, layout: PublicLayout, role: ["CUSTOMER"] },
 
